@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -57,7 +58,7 @@ def zymctrl_task(
 
     try:
         if mode == "finetune":
-            print(f"Starting fine-tuning workflow for EC {ec_numbers[0]}...")
+            print(f"Starting fine-tuning workflow for EC {ec_numbers[0]}")
 
             # Create dataset directory
             dataset_dir = local_output_dir / "dataset"
@@ -69,10 +70,10 @@ def zymctrl_task(
             sequences_dir.mkdir(exist_ok=True)
 
             # Step 1: Prepare training data
-            print("Preparing training data...")
+            print("Preparing training data")
             subprocess.run(
                 [
-                    "python3",
+                    "python3.9",
                     "/root/scripts/prep.py",
                     "--input",
                     str(training_fasta.local_path),
@@ -80,15 +81,17 @@ def zymctrl_task(
                     ec_numbers[0],
                     "--output_dir",
                     str(dataset_dir),
+                    "--validation_split",
+                    "10",
                 ],
                 check=True,
             )
 
             # Step 2: Fine-tune the model
-            print("Fine-tuning model...")
+            print("Fine-tuning model")
             subprocess.run(
                 [
-                    "python3",
+                    "python3.9",
                     "/root/scripts/run_clm.py",
                     "--tokenizer_name",
                     "AI4PD/ZymCTRL",
@@ -98,6 +101,8 @@ def zymctrl_task(
                     "--do_eval",
                     "--output_dir",
                     str(model_dir),
+                    "--eval_strategy",
+                    "steps",
                     "--eval_steps",
                     "10",
                     "--logging_steps",
@@ -110,57 +115,53 @@ def zymctrl_task(
                     "1",
                     "--per_device_eval_batch_size",
                     "4",
+                    "--cache_dir",
+                    str(local_output_dir / "cache"),
+                    "--save_total_limit",
+                    "2",
                     "--learning_rate",
                     "0.8e-04",
                     "--dataloader_drop_last",
                     "True",
-                    "--cache_dir",
-                    str(local_output_dir / "cache"),
                 ],
                 check=True,
             )
 
-            # Generate with fine-tuned model
-            print("Generating sequences with fine-tuned model...")
             model_path = str(model_dir)
             output_path = str(sequences_dir)
 
         else:  # mode == "generate"
-            print("Starting direct generation workflow...")
+            print("Starting direct generation workflow")
             model_path = "AI4PD/ZymCTRL"
             output_path = str(local_output_dir)
 
         # Generate sequences (for both modes)
-        batches = (num_sequences + 19) // 20  # 20 sequences per batch
+        print("Generating sequences")
         for ec in ec_numbers:
             ec_dir = Path(output_path) / ec
             ec_dir.mkdir(exist_ok=True)
 
-            print(f"Generating {num_sequences} sequences for EC {ec}...")
-            for batch in range(batches):
-                subprocess.run(
-                    [
-                        "python3",
-                        "/root/scripts/generate.py",
-                        "--ec_number",
-                        ec,
-                        "--output_dir",
-                        str(ec_dir),
-                        "--batch_id",
-                        str(batch),
-                        "--model_path",
-                        model_path,
-                        "--num_sequences",
-                        "20",
-                    ],
-                    check=True,
-                )
+            print(f"Generating {num_sequences} sequences for EC {ec}")
+            subprocess.run(
+                [
+                    "python3.9",
+                    "/root/scripts/generate.py",
+                    "--ec_number",
+                    ec,
+                    "--output_dir",
+                    str(ec_dir),
+                    "--model_path",
+                    model_path,
+                ],
+                check=True,
+            )
 
     except Exception as e:
         error_msg = f"ZymCTRL {'fine-tuning' if mode == 'finetune' else 'generation'} failed: {str(e)}"
         print(f"ERROR: {error_msg}")
-        message("error", {"title": "ZymCTRL Error", "body": error_msg})
-        raise e
+        time.sleep(60000)
+        # message("error", {"title": "ZymCTRL Error", "body": error_msg})
+        # raise e
 
     print("-" * 60)
     print("Returning results")

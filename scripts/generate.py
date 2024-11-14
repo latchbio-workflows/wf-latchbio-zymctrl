@@ -1,3 +1,4 @@
+import argparse
 import math
 import os
 
@@ -60,29 +61,33 @@ def main(label, model, special_tokens, device, tokenizer):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--ec_number", required=True, help="EC number to generate sequences for"
+    )
+    parser.add_argument(
+        "--output_dir", required=True, help="Output directory for sequences"
+    )
+    parser.add_argument("--model_path", default="AI4PD/ZymCTRL", help="Path to model")
+    args = parser.parse_args()
+
     device = torch.device(
         "cuda"
     )  # Replace with 'cpu' if you don't have a GPU - but it will be slow
     print("Reading pretrained model and tokenizer")
-    tokenizer = AutoTokenizer.from_pretrained(
-        "/path/to/zymCTRL/"
-    )  # change to ZymCTRL location
-    model = GPT2LMHeadModel.from_pretrained("/path/to/zymCTRL").to(
-        device
-    )  # change to ZymCTRL location
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    model = GPT2LMHeadModel.from_pretrained(args.model_path).to(device)
     special_tokens = ["<start>", "<end>", "<|endoftext|>", "<pad>", " ", "<sep>"]
 
-    # change to the appropriate EC classes
-    labels = ["3.5.5.1"]  # nitrilases. You can put as many labels as you want.
+    os.makedirs(args.output_dir, exist_ok=True)
 
-    for label in tqdm(labels):
-        # We'll run 100 batches per label. 20 sequences will be generated per batch.
-        for i in range(0, 100):
-            sequences = main(label, model, special_tokens, device, tokenizer)
-            for key, value in sequences.items():
-                for index, val in enumerate(value):
-                    # Sequences will be saved with the name of the label followed by the batch index,
-                    # and the order of the sequence in that batch.
-                    fn = open(f"/path/to/folder/{label}_{i}_{index}.fasta", "w")
-                    fn.write(f">{label}_{i}_{index}\t{val[1]}\n{val[0]}")
-                    fn.close()
+    # Run 100 batches for the EC number
+    for i in range(0, 100):
+        sequences = main(args.ec_number, model, special_tokens, device, tokenizer)
+        for key, value in sequences.items():
+            for index, val in enumerate(value):
+                # Sequences will be saved with the name of the label followed by the batch index,
+                # and the order of the sequence in that batch.
+                fn = open(f"{args.output_dir}/{key}_{i}_{index}.fasta", "w")
+                fn.write(f">{key}_{i}_{index}\t{val[1]}\n{val[0]}")
+                fn.close()

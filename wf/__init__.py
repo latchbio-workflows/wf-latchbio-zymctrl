@@ -27,8 +27,6 @@ metadata = LatchMetadata(
         "mode": LatchParameter(
             display_name="Mode",
             description="Choose whether to generate sequences directly or fine-tune then generate",
-            type=str,
-            choices=["generate", "finetune"],
         ),
         "ec_numbers": LatchParameter(
             display_name="EC Numbers",
@@ -43,7 +41,6 @@ metadata = LatchMetadata(
         "training_fasta": LatchParameter(
             display_name="Training FASTA",
             description="FASTA file containing sequences for fine-tuning (only needed for fine-tune mode)",
-            optional=True,
             batch_table_column=True,
         ),
         "epochs": LatchParameter(

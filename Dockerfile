@@ -64,17 +64,12 @@ RUN apt-get update --yes && \
 # ENV DISKCACHE_SIZE="200Gi"
 
 RUN pip3 install torch==2.4.1 torchvision torchaudio
-# RUN python3 -m pip install tensorflow[and-cuda]
-# RUN pip install flax
 
 RUN pip3 install datasets evaluate scikit-learn accelerate
 
-RUN pip install git+https://github.com/huggingface/transformers
-
-RUN pip install deepspeed
-
 RUN apt-get install python3.9-dev -y
 
+RUN pip install git+https://github.com/huggingface/transformers
 RUN python3.9 -c "from transformers import AutoTokenizer, GPT2LMHeadModel; tokenizer = AutoTokenizer.from_pretrained('AI4PD/ZymCTRL'); model = GPT2LMHeadModel.from_pretrained('AI4PD/ZymCTRL')"
 
 # Latch SDK
