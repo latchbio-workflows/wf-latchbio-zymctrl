@@ -89,7 +89,7 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Run 100 batches for the EC number
-    for i in range(0, args.num_batches):
+    for i in range(0, int(args.num_batches)):
         sequences = main(
             args.ec_number,
             model,
