@@ -96,7 +96,7 @@ if __name__ == "__main__":
             special_tokens,
             device,
             tokenizer,
-            args.num_return_sequences,
+            int(args.num_return_sequences),
         )
         for key, value in sequences.items():
             for index, val in enumerate(value):
