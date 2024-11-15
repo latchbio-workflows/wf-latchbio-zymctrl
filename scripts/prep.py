@@ -176,6 +176,9 @@ def main():
     train_dataset = lm_datasets["train"]
     eval_dataset = lm_datasets["validation"]
 
+    print(f"Dataset structure before saving: {train_dataset.features}")
+    print(f"Number of examples: Train={len(train_dataset)}, Eval={len(eval_dataset)}")
+
     train_dataset.save_to_disk(f"{args.output_dir}/train2")
     eval_dataset.save_to_disk(f"{args.output_dir}/eval2")
 

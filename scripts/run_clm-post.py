@@ -357,6 +357,9 @@ def main():
     train_dataset = load_from_disk("dataset/train2")
     eval_dataset = load_from_disk("dataset/eval2")
 
+    print(f"Dataset structure before saving: {train_dataset.features}")
+    print(f"Number of examples: Train={len(train_dataset)}, Eval={len(eval_dataset)}")
+
     # Initialize our Trainer
     trainer = Trainer(
         model=model,

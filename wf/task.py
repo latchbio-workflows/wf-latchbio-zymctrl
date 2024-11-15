@@ -92,13 +92,13 @@ def zymctrl_task(
             subprocess.run(
                 [
                     "python3.9",
-                    "/root/scripts/run_clm.py",
+                    "/root/scripts/run_clm-post.py",
                     "--tokenizer_name",
                     "AI4PD/ZymCTRL",
                     "--model_name_or_path",
                     "AI4PD/ZymCTRL",
                     "--do_train",
-                    "--do_eval",
+                    # "--do_eval",
                     "--output_dir",
                     str(model_dir),
                     "--eval_strategy",
@@ -125,6 +125,7 @@ def zymctrl_task(
                     "True",
                 ],
                 check=True,
+                cwd=local_output_dir,
             )
 
             model_path = str(model_dir)
