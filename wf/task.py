@@ -1,6 +1,5 @@
 import subprocess
 import sys
-import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -16,11 +15,12 @@ sys.stdout.reconfigure(line_buffering=True)
 @large_gpu_task
 def zymctrl_task(
     run_name: str,
-    mode: str,
     ec_numbers: List[str],
-    num_sequences: int,
     training_fasta: Optional[LatchFile] = None,
     epochs: int = 28,
+    num_batches: int = 20,
+    num_return_sequences: int = 20,
+    validation_split: int = 10,
     output_directory: LatchOutputDir = LatchOutputDir("latch:///ZymCTRL"),
 ) -> LatchOutputDir:
     rename_current_execution(str(run_name))
@@ -35,41 +35,30 @@ def zymctrl_task(
     subprocess.run(["nvcc", "--version"], check=True)
 
     print("-" * 60)
-    # Validate inputs based on mode
-    if mode == "finetune":
-        if not training_fasta:
-            message(
-                "error",
-                {
-                    "title": "ZymCTRL Error",
-                    "body": "Training FASTA required for fine-tuning mode",
-                },
-            )
-            raise ValueError("Training FASTA required for fine-tuning mode")
-        if len(ec_numbers) != 1:
-            message(
-                "error",
-                {
-                    "title": "ZymCTRL Error",
-                    "body": "Fine-tuning mode only supports one EC number",
-                },
-            )
-            raise ValueError("Fine-tuning mode only supports one EC number at a time")
-
     try:
-        if mode == "finetune":
+        if training_fasta:
+            if len(ec_numbers) != 1:
+                message(
+                    "error",
+                    {
+                        "title": "ZymCTRL Error",
+                        "body": "Fine-tuning mode only supports one EC number",
+                    },
+                )
+                raise ValueError(
+                    "Fine-tuning mode only supports one EC number at a time"
+                )
+
             print(f"Starting fine-tuning workflow for EC {ec_numbers[0]}")
 
-            # Create dataset directory
             dataset_dir = local_output_dir / "dataset"
             model_dir = local_output_dir / "model"
             sequences_dir = local_output_dir / "sequences"
 
-            dataset_dir.mkdir(exist_ok=True)
-            model_dir.mkdir(exist_ok=True)
-            sequences_dir.mkdir(exist_ok=True)
+            dataset_dir.mkdir(exist_ok=True, parents=True)
+            model_dir.mkdir(exist_ok=True, parents=True)
+            sequences_dir.mkdir(exist_ok=True, parents=True)
 
-            # Step 1: Prepare training data
             print("Preparing training data")
             subprocess.run(
                 [
@@ -82,12 +71,11 @@ def zymctrl_task(
                     "--output_dir",
                     str(dataset_dir),
                     "--validation_split",
-                    "10",
+                    str(validation_split),
                 ],
                 check=True,
             )
 
-            # Step 2: Fine-tune the model
             print("Fine-tuning model")
             subprocess.run(
                 [
@@ -98,7 +86,7 @@ def zymctrl_task(
                     "--model_name_or_path",
                     "AI4PD/ZymCTRL",
                     "--do_train",
-                    # "--do_eval",
+                    "--do_eval",
                     "--output_dir",
                     str(model_dir),
                     "--eval_strategy",
@@ -131,7 +119,7 @@ def zymctrl_task(
             model_path = str(model_dir)
             output_path = str(sequences_dir)
 
-        else:  # mode == "generate"
+        else:
             print("Starting direct generation workflow")
             model_path = "AI4PD/ZymCTRL"
             output_path = str(local_output_dir)
@@ -142,27 +130,32 @@ def zymctrl_task(
             ec_dir = Path(output_path) / ec
             ec_dir.mkdir(exist_ok=True)
 
-            print(f"Generating {num_sequences} sequences for EC {ec}")
+            print(
+                f"Generating {num_batches*num_return_sequences} sequences for EC {ec}"
+            )
             subprocess.run(
                 [
                     "python3.9",
                     "/root/scripts/generate.py",
                     "--ec_number",
-                    ec,
+                    str(ec),
                     "--output_dir",
                     str(ec_dir),
                     "--model_path",
                     model_path,
+                    "--num_batches",
+                    str(num_batches),
+                    "--num_return_sequences",
+                    str(num_return_sequences),
                 ],
                 check=True,
             )
 
     except Exception as e:
-        error_msg = f"ZymCTRL {'fine-tuning' if mode == 'finetune' else 'generation'} failed: {str(e)}"
+        error_msg = f"ZymCTRL {'fine-tuning' if training_fasta else 'generation'} failed: {str(e)}"
         print(f"ERROR: {error_msg}")
-        time.sleep(60000)
-        # message("error", {"title": "ZymCTRL Error", "body": error_msg})
-        # raise e
+        message("error", {"title": "ZymCTRL Error", "body": error_msg})
+        raise e
 
     print("-" * 60)
     print("Returning results")

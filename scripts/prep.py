@@ -1,10 +1,13 @@
 import argparse
 import random
+import sys
 
 import transformers
 from datasets import load_dataset
 from transformers import AutoTokenizer
 from transformers.testing_utils import CaptureLogger
+
+sys.stdout.reconfigure(line_buffering=True)
 
 
 def main():

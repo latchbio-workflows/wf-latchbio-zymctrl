@@ -1,10 +1,13 @@
 import argparse
 import math
 import os
+import sys
 
 import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer, GPT2LMHeadModel
+
+sys.stdout.reconfigure(line_buffering=True)
 
 
 def remove_characters(sequence, char_list):
@@ -24,7 +27,7 @@ def calculatePerplexity(input_ids, model, tokenizer):
     return math.exp(loss)
 
 
-def main(label, model, special_tokens, device, tokenizer):
+def main(label, model, special_tokens, device, tokenizer, num_return_sequences):
     # Generating sequences
     input_ids = tokenizer.encode(label, return_tensors="pt").to(device)
     outputs = model.generate(
@@ -35,7 +38,7 @@ def main(label, model, special_tokens, device, tokenizer):
         eos_token_id=1,
         pad_token_id=0,
         do_sample=True,
-        num_return_sequences=20,
+        num_return_sequences=num_return_sequences,
     )  # Depending non your GPU, you'll be able to generate fewer or more sequences. This runs in an A40.
 
     # Check sequence sanity, ensure sequences are not-truncated.
@@ -69,6 +72,10 @@ if __name__ == "__main__":
         "--output_dir", required=True, help="Output directory for sequences"
     )
     parser.add_argument("--model_path", default="AI4PD/ZymCTRL", help="Path to model")
+    parser.add_argument("--num_batches", default="20", help="Number of batches")
+    parser.add_argument(
+        "--num_return_sequences", default="20", help="Number of sequences per batch"
+    )
     args = parser.parse_args()
 
     device = torch.device(
@@ -82,8 +89,15 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Run 100 batches for the EC number
-    for i in range(0, 100):
-        sequences = main(args.ec_number, model, special_tokens, device, tokenizer)
+    for i in range(0, args.num_batches):
+        sequences = main(
+            args.ec_number,
+            model,
+            special_tokens,
+            device,
+            tokenizer,
+            args.num_return_sequences,
+        )
         for key, value in sequences.items():
             for index, val in enumerate(value):
                 # Sequences will be saved with the name of the label followed by the batch index,
